@@ -30,6 +30,12 @@ jobs:
       - name: Sync web assets/config into iOS project
         run: npx cap sync ios
 
+      - name: Disable code signing for CocoaPods targets
+        run: |
+          perl -0777 -pi -e 's/(assign_pod_names\(installer\))/$1\n  installer.pods_project.targets.each do |target|\n    target.build_configurations.each do |config|\n      config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"\n      config.build_settings["CODE_SIGNING_REQUIRED"] = "NO"\n    end\n  end/' ios/App/Podfile
+          cd ios/App
+          pod install
+
       - name: Set build number / version
         run: |
           VERSION=$(node -p "require('./package.json').version")
