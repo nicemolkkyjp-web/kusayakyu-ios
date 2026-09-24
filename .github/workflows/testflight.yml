@@ -86,14 +86,26 @@ jobs:
           UUID=$(echo "$PLIST_XML" | /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
           echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
 
-      - name: Write build xcconfig (scope signing to App target only)
+      - name: Configure App target code signing
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
         run: |
-          cat > "$RUNNER_TEMP/Signing.xcconfig" << EOF
-          CODE_SIGN_STYLE[target=App] = Manual
-          DEVELOPMENT_TEAM[target=App] = ${{ secrets.APPLE_TEAM_ID }}
-          PROVISIONING_PROFILE[target=App] = ${{ steps.profile.outputs.uuid }}
-          CODE_SIGN_IDENTITY[target=App] = Apple Distribution
-          EOF
+          ruby -e '
+            require "xcodeproj"
+            project = Xcodeproj::Project.open("ios/App/App.xcodeproj")
+            target = project.targets.find { |t| t.name == "App" }
+            team_id = ENV["APPLE_TEAM_ID"]
+            profile_uuid = ENV["PROFILE_UUID"]
+            target.build_configurations.each do |config|
+              config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+              config.build_settings["DEVELOPMENT_TEAM"] = team_id
+              config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = profile_uuid
+              config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+              config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "Apple Distribution"
+            end
+            project.save
+          '
 
       - name: Build archive
         run: |
@@ -102,8 +114,7 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -destination "generic/platform=iOS" \
-            -xcconfig "$RUNNER_TEMP/Signing.xcconfig"
+            -destination "generic/platform=iOS"
 
       - name: Write export options
         run: |
