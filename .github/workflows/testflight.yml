@@ -86,6 +86,15 @@ jobs:
           UUID=$(echo "$PLIST_XML" | /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
           echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
 
+      - name: Write build xcconfig (scope signing to App target only)
+        run: |
+          cat > "$RUNNER_TEMP/Signing.xcconfig" << EOF
+          CODE_SIGN_STYLE[target=App] = Manual
+          DEVELOPMENT_TEAM[target=App] = ${{ secrets.APPLE_TEAM_ID }}
+          PROVISIONING_PROFILE[target=App] = ${{ steps.profile.outputs.uuid }}
+          CODE_SIGN_IDENTITY[target=App] = Apple Distribution
+          EOF
+
       - name: Build archive
         run: |
           xcodebuild archive \
@@ -94,10 +103,7 @@ jobs:
             -configuration Release \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -destination "generic/platform=iOS" \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
-            CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE="${{ steps.profile.outputs.uuid }}" \
-            CODE_SIGN_IDENTITY="Apple Distribution"
+            -xcconfig "$RUNNER_TEMP/Signing.xcconfig"
 
       - name: Write export options
         run: |
