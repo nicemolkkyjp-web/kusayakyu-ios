@@ -1,0 +1,138 @@
+﻿name: iOS TestFlight
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+
+env:
+  BUNDLE_ID: com.hiroyaapps.kusayakyu
+  SCHEME: App
+  WORKSPACE: ios/App/App.xcworkspace
+
+jobs:
+  build-and-upload:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install JS deps
+        run: npm install
+
+      - name: Add iOS platform
+        run: npx cap add ios
+
+      - name: Sync web assets/config into iOS project
+        run: npx cap sync ios
+
+      - name: Set build number / version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BUILD_NUMBER="${{ github.run_number }}"
+          PBXPROJ=ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $VERSION;/g" "$PBXPROJ"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PBXPROJ"
+
+      - name: Patch Info.plist (export compliance)
+        run: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
+          # カメラ/マイク等を使う機能を追加したら、ここに利用目的の説明文を追加すること。
+          # 例:
+          # /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '試合結果の写真を添付するために使用します'" "$PLIST"
+
+      - name: Import signing certificate & provisioning profile
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_DIST_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          set -e
+          CERT_PATH=$RUNNER_TEMP/dist_cert.p12
+          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          mkdir -p ~/Library/MobileDevice/"Provisioning Profiles"
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/"Provisioning Profiles"/
+
+      - name: Resolve provisioning profile UUID / team ID
+        id: profile
+        run: |
+          PROFILE_PATH=$(ls ~/Library/MobileDevice/"Provisioning Profiles"/*.mobileprovision | head -n1)
+          PLIST_XML=$(security cms -D -i "$PROFILE_PATH")
+          UUID=$(echo "$PLIST_XML" | /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
+          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+
+      - name: Build archive
+        run: |
+          xcodebuild archive \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -destination "generic/platform=iOS" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE="${{ steps.profile.outputs.uuid }}" \
+            CODE_SIGN_IDENTITY="Apple Distribution"
+
+      - name: Write export options
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${{ env.BUNDLE_ID }}</key>
+              <string>${{ steps.profile.outputs.uuid }}</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Export ipa
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: Upload to TestFlight
+        env:
+          API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_ISSUER_ID }}
+          API_PRIVATE_KEY: ${{ secrets.APPSTORE_CONNECT_API_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$API_PRIVATE_KEY" > ~/private_keys/AuthKey_$API_KEY_ID.p8
+          IPA_PATH=$(ls "$RUNNER_TEMP"/export/*.ipa | head -n1)
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$API_ISSUER_ID"

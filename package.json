@@ -1,0 +1,16 @@
+﻿{
+  "name": "kusayakyu-ios",
+  "version": "1.0.0",
+  "description": "草野球マスター iOSアプリ（Capacitorネイティブシェル）",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
+  }
+}

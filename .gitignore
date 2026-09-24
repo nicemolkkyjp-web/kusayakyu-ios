@@ -1,0 +1,6 @@
+﻿node_modules/
+ios/
+*.ipa
+*.p12
+*.mobileprovision
+build/
