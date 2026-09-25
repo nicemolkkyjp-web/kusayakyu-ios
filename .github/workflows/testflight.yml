@@ -68,6 +68,11 @@ jobs:
           PLIST=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" \
             || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
+          # 黒い画面に合わせて、ステータスバーの時刻・電池表示を白にする
+          /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Set :UIStatusBarStyle UIStatusBarStyleLightContent" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Set :UIViewControllerBasedStatusBarAppearance false" "$PLIST"
           # カメラ/マイク等を使う機能を追加したら、ここに利用目的の説明文を追加すること。
           # 例:
           # /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '試合結果の写真を添付するために使用します'" "$PLIST"
