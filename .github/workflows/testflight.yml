@@ -1,4 +1,4 @@
-﻿name: iOS TestFlight
+name: iOS TestFlight
 
 on:
   workflow_dispatch: {}
@@ -36,6 +36,18 @@ jobs:
 
       - name: Sync web assets/config into iOS project
         run: npx cap sync ios
+
+      - name: Apply app icon and splash
+        run: |
+          # Capacitorのテンプレートは1024pxのアイコン1枚＋2732pxの起動画面画像を持つ。
+          # resources/ の画像でそのまま上書きする（サイズが違うファイルがあれば止める）。
+          ICONSET=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          SPLASH=ios/App/App/Assets.xcassets/Splash.imageset
+          ls "$ICONSET" "$SPLASH"
+          ICONS=$(ls "$ICONSET"/*.png | wc -l | tr -d ' ')
+          if [ "$ICONS" != "1" ]; then echo "AppIcon.appiconset に想定外のPNGが $ICONS 個あります"; exit 1; fi
+          cp resources/icon.png "$ICONSET"/*.png
+          for f in "$SPLASH"/*.png; do cp resources/splash.png "$f"; done
 
       - name: Disable code signing for CocoaPods targets
         run: |
