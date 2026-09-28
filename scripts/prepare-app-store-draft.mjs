@@ -351,20 +351,29 @@ await step('配信地域（日本）', async () => {
     if (e.status !== 404) throw e;
   }
   if (!availability) {
+    // 初めて設定するときは、すべての国・地域について「配信する／しない」を送る決まりになっている
+    const all = [];
+    let nextTerritories = '/v1/territories?limit=200';
+    while (nextTerritories) {
+      const page = await get(nextTerritories);
+      all.push(...page.data.map((t) => t.id));
+      nextTerritories = page.links?.next || null;
+    }
+    for (const t of meta.territories) if (!all.includes(t)) throw new Error(`${t} が国・地域の一覧にありません`);
     await post('/v2/appAvailabilities', {
       type: 'appAvailabilities',
       attributes: {availableInNewTerritories: false},
       relationships: {
         app: {data: {type: 'apps', id: appId}},
-        territoryAvailabilities: {data: meta.territories.map((t) => ({type: 'territoryAvailabilities', id: '${' + t + '}'}))},
+        territoryAvailabilities: {data: all.map((t) => ({type: 'territoryAvailabilities', id: '${' + t + '}'}))},
       },
-    }, meta.territories.map((t) => ({
+    }, all.map((t) => ({
       type: 'territoryAvailabilities',
       id: '${' + t + '}',
-      attributes: {available: true, releaseDate: null, preOrderEnabled: false},
+      attributes: {available: meta.territories.includes(t), releaseDate: null, preOrderEnabled: false},
       relationships: {territory: {data: {type: 'territories', id: t}}},
     })));
-    return `${meta.territories.join(', ')} だけに設定`;
+    return `${meta.territories.join(', ')} だけに設定（全${all.length}か所のうち）`;
   }
   const list = [];
   let next = `/v2/appAvailabilities/${availability.id}/territoryAvailabilities?include=territory&limit=200`;
