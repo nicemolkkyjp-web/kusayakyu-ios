@@ -322,7 +322,11 @@ await step('価格（無料）', async () => {
   } catch (e) {
     if (e.status !== 404) throw e;
   }
-  if (schedule) return '設定済みのため変更なし';
+  // 価格の枠だけあって中身（価格帯）が空のことがあるので、中身まで確かめる
+  if (schedule) {
+    const prices = (await get(`/v1/appPriceSchedules/${schedule.id}/manualPrices?limit=1`)).data;
+    if (prices.length) return '設定済みのため変更なし';
+  }
   const points = (await get(`/v1/apps/${appId}/appPricePoints?filter[territory]=${meta.baseTerritory}&limit=200`)).data;
   const free = points.find((p) => Number(p.attributes.customerPrice) === 0);
   if (!free) throw new Error('無料（0円）の価格が見つかりません');
