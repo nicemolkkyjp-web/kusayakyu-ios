@@ -1,5 +1,5 @@
 {
-  "appId": "",
+  "appId": "6815669460",
   "bundleId": "com.hiroyaapps.kusayakyu",
   "locale": "ja",
   "versionString": "1.0.0",
@@ -17,7 +17,7 @@
     {"category": "OTHER_USER_CONTENT", "purposes": ["APP_FUNCTIONALITY"], "protections": ["DATA_LINKED_TO_YOU"]},
     {"category": "OTHER_DATA", "purposes": ["APP_FUNCTIONALITY"], "protections": ["DATA_LINKED_TO_YOU"]}
   ],
-  "name": "草野球マスター",
+  "name": "草野球マスタ",
   "subtitle": "チームの予定・出欠・スコアと成績",
   "privacyPolicyUrl": "https://kusayakyu.vercel.app/privacy",
   "supportUrl": "https://kusayakyu.vercel.app/support",
@@ -71,7 +71,7 @@
     "・ユーザーが入力する内容（予定・スコア・コメント）は、同じチームのメンバーにだけ表示されます（メンバー募集中のチームの紹介は、チーム検索にも表示されます）。不適切な内容はお問い合わせページから通報でき、チームのオーナーはメンバーを外せます。",
     "・トラッキングと広告はありません。アプリは日本語のみです。"
   ],
-  "screenshotDisplayType": "APP_IPHONE_67",
+  "screenshotDisplayType": "APP_IPHONE_65",
   "screenshots": [
     "store/screenshots/kusayakyu-1.png",
     "store/screenshots/kusayakyu-2.png",
