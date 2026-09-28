@@ -33,3 +33,34 @@
 
 mainブランチにpushすると自動的にビルド〜TestFlightアップロードが走ります。
 手動実行はGitHub Actionsタブの「iOS TestFlight」→ Run workflow から。
+
+## App Store 申請の下書き（「審査へ提出」の手前まで）
+
+入力する中身（説明文・キーワード・審査メモ・スクリーンショットなど）は `store/metadata.json` と
+`store/screenshots/` にまとめてあります。
+
+1. GitHub Secrets に次を登録する（公開したくない情報なのでリポジトリには書かない）
+
+   | Secret名 | 内容 |
+   |---|---|
+   | APP_REVIEW_CONTACT_FIRST_NAME | 審査の連絡先：名 |
+   | APP_REVIEW_CONTACT_LAST_NAME | 審査の連絡先：姓 |
+   | APP_REVIEW_CONTACT_PHONE | 審査の連絡先：電話番号（例 +81 90 1234 5678） |
+   | APP_REVIEW_CONTACT_EMAIL | 審査の連絡先：メール |
+   | APP_REVIEW_DEMO_USER | 審査用デモアカウントのメールアドレス |
+   | APP_REVIEW_DEMO_PASSWORD | 審査用デモアカウントのパスワード |
+   | APP_STORE_COPYRIGHT | 著作権表示（例 `2026 Hiroya Shimizu`） |
+
+2. Actions タブ →「App Store 申請の下書きを入力」→ Run workflow
+   - `check`：いまの状態を読むだけ（何も変えない）
+   - `apply`：下書きを入力する（何度実行しても同じ結果になる）
+3. 「Appのプライバシー」だけは APIキーでは入力できないため、パソコンで実行する
+   （Edge が開くので Apple ID でログインすると、自動で入力して公開まで行う）
+
+   ```
+   cd scripts\app-privacy
+   npm install
+   node set-app-privacy.mjs
+   ```
+
+4. App Store Connect で内容を確認して「審査用に追加」→「審査へ提出」

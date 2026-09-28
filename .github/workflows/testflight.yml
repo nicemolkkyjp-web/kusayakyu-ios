@@ -4,6 +4,12 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
+    # 申請用の文章・画像・スクリプトだけを変えたときは、アプリを作り直さない
+    paths-ignore:
+      - 'store/**'
+      - 'scripts/**'
+      - 'README.md'
+      - '.github/workflows/appstore-draft.yml'
 
 env:
   BUNDLE_ID: com.hiroyaapps.kusayakyu
