@@ -45,7 +45,20 @@ function createToken() {
 let token = createToken();
 let tokenAt = Date.now();
 
+// Apple側の一時的なエラー（500番台）は、少し待って最大3回までやり直す
 async function request(path, options = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await requestOnce(path, options);
+    } catch (e) {
+      if (!(e.status >= 500) || attempt >= 3) throw e;
+      console.log(`  （Appleのサーバーエラー ${e.status}。${attempt * 5}秒待ってやり直します）`);
+      await new Promise((r) => setTimeout(r, attempt * 5000));
+    }
+  }
+}
+
+async function requestOnce(path, options = {}) {
   if (Date.now() - tokenAt > 10 * 60 * 1000) {
     token = createToken();
     tokenAt = Date.now();
